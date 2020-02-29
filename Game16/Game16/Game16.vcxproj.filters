@@ -5,12 +5,14 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DirectX11.cpp" />
     <ClCompile Include="Window.cpp" />
+    <ClCompile Include="Render2D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DirectX11.h" />
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Window.h" />
+    <ClInclude Include="Render2D.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="simpleShader.hlsl" />
