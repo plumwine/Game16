@@ -132,11 +132,13 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DirectX11.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Render2D.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DirectX11.h" />
+    <ClInclude Include="Render2D.h" />
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
