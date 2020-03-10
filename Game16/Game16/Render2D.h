@@ -1,8 +1,26 @@
 #pragma once
 #include "DirectX11.h"
 #include "Singleton.h"
-
+#include "Math/Vector3.h"
 #include <unordered_map>
+#include <vector>
+
+
+//2D描画情報
+struct DrawInfomation2D
+{
+	std::string textureName;    //テクスチャ名
+	Vector3 position;			//位置
+	Vector3 angles;				//回転
+	Vector3 scale;				//拡大縮小
+	float uvX;					//uv関係
+	float uvY;					//
+	float uvWidth;				//
+	float uvHeight;				//
+
+};
+
+
 
 //レンダラー2Dのシングルトン
 class Render2D :public Singleton<Render2D>
@@ -17,6 +35,18 @@ public:
 	//初期化
 	void init();                               //何も設定しなければinitだけでいい
 	void Draw();                               //描画
+
+	//2D（UI関係の）描画 使用する方
+	void drawTexture2D(std::string textureName, Vector3 position, Vector3 angle, Vector3 scale, UINT layer = 0);
+	
+	void drawTexture2D(
+		std::string textureName, Vector3 position, Vector3 angles, Vector3 scale,
+		float uvX, float uvY, float uvWidth, float uvHeight, UINT layer = 0);
+
+	void drawManager();
+	//いつもの
+	void draw2D(std::string textureName,Vector3 position, Vector3 angle,Vector3 scale, float uvX, float uvY, float uvWidth, float uvHeight);
+
 
 	//バックバッファーのレンダーターゲットビュー(RTV)を作成
 	void createRTV();
@@ -37,9 +67,8 @@ public:
 	ID3D11HullShader* GetHullShader(std::string hsName);
 	ID3D11DomainShader* GetDomainShader(std::string dsName);
 	ID3D11ComputeShader* GetComputeShader(std::string csName);
-	unsigned char* GetCompileData(std::string cpName);
 
-	HRESULT MakeShader(const char* shaderName, const char* szProfileName);
+	HRESULT MakeShader(const std::string shaderName, const char* szProfileName,const void * pShaderByteCode,SIZE_T byteCodeLength);
 
 private:
 
@@ -64,7 +93,10 @@ private:
 	std::unordered_map<std::string, ID3D11DomainShader*>    m_DomainShaderMap;      //ドメインシェーダー管理用
 	std::unordered_map<std::string, ID3D11ComputeShader*>   m_ComputeShaderMap;     //コンピュートシェーダー管理用
 
-	std::unordered_map<std::string, unsigned char*> m_CompileData;                  //シェーダーをコンパイルしたデータを保蔵ん
 
+
+	//レイヤー関係
+	int m_MaxLayer;
+	std::unordered_map<UINT, std::vector<DrawInfomation2D>> mLayerDrawMap;
 };
 

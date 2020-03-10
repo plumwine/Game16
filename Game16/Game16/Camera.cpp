@@ -1,11 +1,12 @@
 #include "Camera.h"
 #include "Window.h"
 
+
 //コンストラクタ・初期化並び
 Camera::Camera():
-	m_ViewEyePos(0.0,0.0,0.2),
-	m_ViewLookAtPos(m_ViewEyePos + D3DXVECTOR3(0.0f, 0.0f, 1.0f)),
-	m_ViewUpVec(0.0, 1.0, 0.0)
+	m_ViewEyePos(XMVectorSet(0.0,0.0,0.2,0.0)),
+	m_ViewLookAtPos(m_ViewEyePos + XMVectorSet(0.0f, 0.0f, 1.0f,0.0)),
+	m_ViewUpVec(XMVectorSet(0.0, 1.0, 0.0,0.0))
 {
 }
 
@@ -29,10 +30,13 @@ void Camera::init()
 	//レンズ関係
 
 	//カメラ視点系を初期化
-	D3DXMatrixLookAtLH(&m_View,&m_ViewEyePos, &m_ViewLookAtPos, &m_ViewUpVec);
+	m_View = XMMatrixLookAtLH(m_ViewEyePos, m_ViewLookAtPos, m_ViewUpVec);
+	
+	//D3DXMatrixLookAtLH(&m_View,&m_ViewEyePos, &m_ViewLookAtPos, &m_ViewUpVec);
 	// プロジェクショントランスフォーム
-	D3DXMatrixPerspectiveFovLH(&m_Proj, D3DX_PI / 4, (FLOAT)Window::getInstance().GetWidth() / (FLOAT)Window::getInstance().GetHeight(), 0.1f, 100.0f);
-
+	//D3DXMatrixPerspectiveFovLH(&m_Proj, Math::PI / 4, (FLOAT)Window::getInstance().GetWidth() / (FLOAT)Window::getInstance().GetHeight(), 0.1f, 100.0f);
+	
+	m_Proj = XMMatrixPerspectiveFovLH(XM_PI / 4, (FLOAT)Window::getInstance().GetWidth() / (FLOAT)Window::getInstance().GetHeight(), 0.1f, 100.0f);
 
 }
 
@@ -41,19 +45,19 @@ void Camera::update()
 {
 }
 //視点位置の変更
-void Camera::setViewEyePos(D3DXVECTOR3 eyePos)
+void Camera::setViewEyePos(Vector3 eyePos)
 {
-	m_ViewEyePos = eyePos;
+	m_ViewEyePos = XMVectorSet(eyePos.x, eyePos.y, eyePos.z,0.0);
 }
 //注視点の変更
-void Camera::setViewLookAtPos(D3DXVECTOR3 lookAtPos)
+void Camera::setViewLookAtPos(Vector3 lookAtPos)
 {
-	m_ViewLookAtPos = lookAtPos;
+	m_ViewLookAtPos = XMVectorSet( lookAtPos.x, lookAtPos.y, lookAtPos.z,0.0);
 }
 //上方位置の変更
-void Camera::setViewUpVec(D3DXVECTOR3 upVecPos)
+void Camera::setViewUpVec(Vector3 upVecPos)
 {
-	m_ViewUpVec = upVecPos;
+	m_ViewUpVec = XMVectorSet(upVecPos.x, upVecPos.y, upVecPos.z,0.0);
 }
 //ビューポートの取得
 D3D11_VIEWPORT const Camera::getViewPort()
@@ -61,32 +65,35 @@ D3D11_VIEWPORT const Camera::getViewPort()
 	return m_ViewPort;
 }
 //View行列
-D3DXMATRIX Camera::getViewMat()
+XMMATRIX Camera::getViewMat()
 {
 	return m_View;
 }
 //投影行列
-D3DXMATRIX Camera::getProjMat()
+XMMATRIX Camera::getProjMat()
 {
 	return m_Proj;
 }
 //視点位置
-D3DXVECTOR3 Camera::getViewEyePos()
+Vector3 Camera::getViewEyePos()
 {
-	return m_ViewEyePos;
+	XMStoreFloat3(&m_vViewEyePos, m_ViewEyePos);
+	return Vector3(m_vViewEyePos.x, m_vViewEyePos.y, m_vViewEyePos.z);
 }
 //注視点
-D3DXVECTOR3 Camera::getViewLookAtPos()
+Vector3 Camera::getViewLookAtPos()
 {
-	return m_ViewLookAtPos;
+	XMStoreFloat3(&m_vViewLookAtPos, m_ViewLookAtPos);
+	return Vector3(m_vViewLookAtPos.x, m_vViewLookAtPos.y, m_vViewLookAtPos.z);
 }
 //上方位置
-D3DXVECTOR3 Camera::getViewUpVec()
+Vector3 Camera::getViewUpVec()
 {
-	return m_ViewUpVec;
+	XMStoreFloat3(&m_vViewUpVec, m_ViewUpVec);
+	return Vector3(m_vViewUpVec.x, m_vViewUpVec.y, m_vViewUpVec.z);
 }
 //WVP(ViewPosition)の取得。引数に個々のWorld行列を入れる
-D3DXMATRIX Camera::getWorldView_Pjojection(D3DXMATRIX world)
+XMMATRIX Camera::getWorldView_Pjojection(XMMATRIX world)
 {
 	return world * m_View * m_Proj;
 }
