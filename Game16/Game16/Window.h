@@ -1,7 +1,6 @@
 #pragma once
 
 #include <windows.h>
-
 #include "Singleton.h"
 
 // WindowƒNƒ‰ƒX Singleton

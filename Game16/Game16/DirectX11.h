@@ -1,11 +1,8 @@
 #pragma once
-
-
 #include "Singleton.h"
 // DirectX11のヘッダーを含める
 #include <d3d11.h>
 #pragma comment(lib,"d3d11.lib")
-
 // 解放用テンプレート関数
 template<class T>
 void SafeRelease(T*& p)

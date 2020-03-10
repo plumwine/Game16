@@ -6,6 +6,10 @@
     <ClCompile Include="DirectX11.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="Render2D.cpp" />
+    <ClCompile Include="Math\Color4.cpp" />
+    <ClCompile Include="Math\Vector2.cpp" />
+    <ClCompile Include="Math\Vector3.cpp" />
+    <ClCompile Include="Texture2D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
@@ -13,6 +17,14 @@
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="Render2D.h" />
+    <ClInclude Include="ps_test.h" />
+    <ClInclude Include="vs_test.h" />
+    <ClInclude Include="Math\Color4.h" />
+    <ClInclude Include="Math\Vector2.h" />
+    <ClInclude Include="Math\Vector3.h" />
+    <ClInclude Include="Texture2D.h" />
+    <ClInclude Include="ps_tex.h" />
+    <ClInclude Include="vs_tex.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="simpleShader.hlsl" />
