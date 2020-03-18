@@ -1,10 +1,12 @@
 #pragma once
 #include "DirectX11.h"
+#include "Camera.h"
 #include "Singleton.h"
 #include "Math/Vector3.h"
 #include <unordered_map>
 #include <vector>
-
+#include <d3dcompiler.h>
+#include <d3d11shader.h>
 
 //2D描画情報
 struct DrawInfomation2D
@@ -50,25 +52,40 @@ public:
 
 	//バックバッファーのレンダーターゲットビュー(RTV)を作成
 	void createRTV();
-	void createRTV(ID3D11Texture2D *pBack);
-
 	//デプスステンシルビュー(DSV)を作成    
 	void createDSV();
-	void createDSV(D3D11_TEXTURE2D_DESC* pDescDepth);
-
 	//シェーダーに返す用のコンスタンとバッファー
 	void createConstantBuffer();
-	void createConstantBuffer(D3D11_BUFFER_DESC* constantBuffer, D3D11_BUFFER_DESC* vertexBuffer);
 
 	//シェーダー情報の取得
 	ID3D11VertexShader* GetVertexShader(std::string vsName);
 	ID3D11PixelShader* GetPixelShader(std::string psName);
-	ID3D11GeometryShader* GetGeometryShader(std::string gsName);
-	ID3D11HullShader* GetHullShader(std::string hsName);
-	ID3D11DomainShader* GetDomainShader(std::string dsName);
-	ID3D11ComputeShader* GetComputeShader(std::string csName);
+
+
+	ID3DBlob** ppGetBlob(LPSTR blobName);
+	ID3DBlob* GetBlob(LPSTR blobName);
+	void AddBlob(LPSTR blobName);
+	ID3D11VertexShader* GetVertexShader(LPSTR name);
+	ID3D11PixelShader* GetPixelShader(LPSTR name);
 
 	HRESULT MakeShader(const std::string shaderName, const char* szProfileName,const void * pShaderByteCode,SIZE_T byteCodeLength);
+
+
+	HRESULT LoadVertexShader(
+		ID3D11Device * pDevice,
+		const std::string key,
+		const void * pShaderByteCode,
+		SIZE_T byteCodeLength);
+	
+	
+	HRESULT LoadPixelShader(
+		ID3D11Device * pDevice,
+		const std::string key,
+		const void * pShaderByteCode,
+		SIZE_T byteCodeLength);
+
+	HRESULT MakeVertex(LPSTR name, ID3DBlob** ppBlob);
+	HRESULT MakePixel(LPSTR name, ID3DBlob** ppBlob);
 
 private:
 
@@ -76,24 +93,21 @@ private:
 	ID3D11DeviceContext* g_pDeviceContext; // 描画用のデバイスコンテキストこの1つを使いまわす。例）1つ目の情報を描画、2つ目を描画する際にまた代入しなおせば2つ目が描画される
 	IDXGISwapChain* g_pSwapChain;		   // 画面出力用のスワップチェイン　こいつは1つだけでいい
 
+	ID3D11SamplerState* g_pSampleLinear;
 	ID3D11RenderTargetView* g_pRTV;
 	ID3D11Texture2D* g_pDS;
 	ID3D11DepthStencilView* g_pDSV;
 	ID3D11InputLayout* g_pVertexLayout;
+	ID3D11BlendState* g_pBlendState;
 
 	//シェーダー系
 	ID3D11Buffer* g_pConstantBuffer;          //シェーダー受け渡し用の定数一時保存
 	ID3D11Buffer* g_pVertexBuffer;            //頂点情報
 
 	//シェーダー管理用
-	std::unordered_map<std::string, ID3D11VertexShader*>    m_VertexShaderMap;      //頂点シェーダー管理用
-	std::unordered_map<std::string, ID3D11PixelShader*>     m_PixelShaderMap;       //ピクセルシェーダー管理用		
-	std::unordered_map<std::string, ID3D11GeometryShader*>  m_GeometryShaderMap;    //ジオメトリシェーダー管理用
-	std::unordered_map<std::string, ID3D11HullShader*>      m_HullShaderMap;        //ハルシェーダー管理用
-	std::unordered_map<std::string, ID3D11DomainShader*>    m_DomainShaderMap;      //ドメインシェーダー管理用
-	std::unordered_map<std::string, ID3D11ComputeShader*>   m_ComputeShaderMap;     //コンピュートシェーダー管理用
-
-
+	//std::unordered_map<std::string, ID3D11VertexShader*>    m_VertexShaderMap;      //頂点シェーダー管理用
+	//std::unordered_map<std::string, ID3D11PixelShader*>     m_PixelShaderMap;       //ピクセルシェーダー管理用		
+	
 
 	//レイヤー関係
 	int m_MaxLayer;

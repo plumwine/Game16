@@ -18,7 +18,7 @@ public:
 	void losdTecture(LPSTR filePath, std::string textureName);   //画像の追加
 
 	ID3D11Resource * getTexture(std::string textureName);                  //画像情報
-	ID3D11ShaderResourceView * getTextureView(std::string textureName);//画像ビュー情報
+	ID3D11ShaderResourceView * getTextureView(std::string textureName);    //画像ビュー情報
 
 	std::unordered_map<std::string, ID3D11Resource*> textureMap;                //テクスチャ情報
 	std::unordered_map<std::string, ID3D11ShaderResourceView*> textureViewMap;
