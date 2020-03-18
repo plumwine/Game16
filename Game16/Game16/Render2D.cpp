@@ -1,14 +1,16 @@
 #include "Render2D.h"
 #include "Window.h"
-#include "Camera.h"
-#include "vs_tex.h"
-#include "ps_tex.h"
+//#include "vs_tex.h"
+//#include "ps_tex.h"
 #include "Math/Color4.h"
 #include "Math/Vector2.h"
 #include "Texture2D.h"
+#include "vs_test.h"
+#include "ps_test.h"
 
-//#include "vs_test.h"
-//#include "ps_test.h"
+#include <d3dx10.h>
+#pragma comment (lib,"d3dx10.lib")
+
 
 //頂点の構造体
 struct SimpleVertex
@@ -16,7 +18,6 @@ struct SimpleVertex
 	DirectX::XMFLOAT3 Pos; //位置
 	DirectX::XMFLOAT2 TexCoord;
 };
-
 //シェーダー用の定数バッファのApp側構造体
 struct SHADER_CONSTANT_BUFFER
 {
@@ -25,6 +26,11 @@ struct SHADER_CONSTANT_BUFFER
 	Vector2 mUVOffset;
 	Vector2 mUVSize;
 };
+ std::unordered_map<std::string, ID3D11VertexShader*>    m_VertexShaderMap;      //頂点シェーダー管理用
+ std::unordered_map<std::string, ID3D11PixelShader*>     m_PixelShaderMap;       //ピクセルシェーダー管理用	
+ std::unordered_map<LPSTR, ID3D11VertexShader*>          l_VertexShaderMap;      //頂点シェーダー管理用
+ std::unordered_map<LPSTR, ID3D11PixelShader*>           l_PixelShaderMap;       //ピクセルシェーダー管理用	
+ std::unordered_map<LPSTR, ID3DBlob*>                    m_BlobMap;       
 
 
 Render2D::Render2D()
@@ -42,11 +48,10 @@ void Render2D::init()
 	g_pDevice = DirectX11::getInstance().GetDevice();
 	g_pDeviceContext = DirectX11::getInstance().GetContext();
 	g_pSwapChain = DirectX11::getInstance().GetSwapChain();
-
-
-	MakeShader("simpleShader", "vs", &g_vs_main, sizeof(g_vs_main));
-	MakeShader("simpleShader", "ps", &g_ps_main, sizeof(g_ps_main));
-
+	//MakeShader("SimpleVertexShader","vs", &g_vs_main, sizeof(g_vs_main));
+	//MakeShader("SimpleVertexShader","ps", &g_ps_main, sizeof(g_ps_main));
+	//LoadVertexShader(g_pDevice,"simpleShader", &g_vs_main, sizeof(g_vs_main));
+	//LoadPixelShader(g_pDevice,"simpleShader", &g_ps_main, sizeof(g_ps_main));
 	createRTV();
 	createDSV();
 	createConstantBuffer();
@@ -114,7 +119,6 @@ void Render2D::drawTexture2D(std::string textureName, Vector3 position, Vector3 
 
 void Render2D::drawTexture2D(std::string textureName, Vector3 position, Vector3 angle, Vector3 scale, float uvX, float uvY, float uvWidth, float uvHeight, UINT layer)
 {
-	
 	//描画情報を入れる
 	DrawInfomation2D drawInfo;
 	drawInfo.textureName = textureName;
@@ -145,20 +149,15 @@ void Render2D::drawTexture2D(std::string textureName, Vector3 position, Vector3 
 
 void Render2D::drawManager()
 {
-
 	//レンダーターゲットビューとデプスステンシルビューをセット
 	g_pDeviceContext->OMSetRenderTargets(1, &g_pRTV, g_pDSV);
 	//画面クリア
 	float ClearColor[4] = { 0,0,0.5,1 };// クリア色作成　RGBAの順
-
 	g_pDeviceContext->ClearRenderTargetView(g_pRTV, ClearColor);//カラーバッファクリア
 	g_pDeviceContext->ClearDepthStencilView(g_pDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);//デプスステンシルバッファクリア
 
-
-	g_pDeviceContext->VSSetShader(GetVertexShader("simpleShader"), NULL, 0);
-	g_pDeviceContext->PSSetShader(GetPixelShader("simpleShader"), NULL, 0);
-
-
+	g_pDeviceContext->VSSetShader(GetVertexShader((LPSTR)"simpleShader.hlsl"), NULL, 0);
+	g_pDeviceContext->PSSetShader(GetPixelShader((LPSTR)"simpleShader.hlsl"), NULL, 0);
 
 	for (int i = 0; i <= m_MaxLayer; i++)
 	{
@@ -167,6 +166,7 @@ void Render2D::drawManager()
 
 		for (auto drawInfo : mLayerDrawMap.at(i))
 		{
+			Vector3 pos  = Camera::getInstance().getViewEyePos();
 			Vector3 drawPos = (drawInfo.position - Camera::getInstance().getViewEyePos());
 
 			draw2D(drawInfo.textureName,
@@ -184,13 +184,12 @@ void Render2D::drawManager()
 
 	mLayerDrawMap.clear();
 	m_MaxLayer = 0;
-
 }
 //原則 2D
 void Render2D::draw2D(std::string textureName, Vector3 position, Vector3 angle, Vector3 scale,
 	float uvX, float uvY, float uvWidth, float uvHeight)
 {
-    //座標変換
+       //座標変換
 	XMMATRIX translate_m = XMMatrixTranslationFromVector(position.toXMVector());
 	
 	//回転
@@ -204,7 +203,7 @@ void Render2D::draw2D(std::string textureName, Vector3 position, Vector3 angle, 
 	//World
 	XMMATRIX world;
 	//回転・拡大・位置の順にかける	
-	world = scale_m * rotate_m * translate_m;
+	world = rotate_m * scale_m * translate_m;
 
 
 	//シェーダーのコンスタントバッファーに各種データを渡す
@@ -220,30 +219,31 @@ void Render2D::draw2D(std::string textureName, Vector3 position, Vector3 angle, 
 		memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
 		g_pDeviceContext->Unmap(g_pConstantBuffer, 0);
 	}
-
-	//バーテックスバッファーをセット
-	UINT stride = sizeof(SimpleVertex);
-	UINT offset = 0;
-	g_pDeviceContext->IASetVertexBuffers(0, 1, &g_pVertexBuffer, &stride, &offset);
+	cb.mUVOffset.x = uvX;
+	cb.mUVOffset.y = uvY;
+	cb.mUVSize.x = uvWidth;
+	cb.mUVSize.y = uvHeight;
 
 	g_pDeviceContext->UpdateSubresource(g_pConstantBuffer, 0, NULL, &cb, 0, 0);
-
-
-	//テクスチャの選択
-	ID3D11ShaderResourceView* texture = Texture2D::getInstance().getTextureView(textureName);
-	g_pDeviceContext->PSSetShaderResources(0, 1, &texture);
 
 	//このコンスタントバッファーをどのシェーダーで使うか
 	g_pDeviceContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
 	g_pDeviceContext->PSSetConstantBuffers(0, 1, &g_pConstantBuffer);
 
+	//テクスチャの選択
+	ID3D11ShaderResourceView* texture = Texture2D::getInstance().getTextureView(textureName);
+	g_pDeviceContext->PSSetShaderResources(0, 1, &texture);
+	//バーテックスバッファーをセット
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	g_pDeviceContext->IASetVertexBuffers(0, 1, &g_pVertexBuffer, &stride, &offset);
 
+	//頂点インプットレイアウトをセット
+	g_pDeviceContext->IASetInputLayout(g_pVertexLayout);
 	//プリミティブ・トポロジーをセット
 	g_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	//プリミティブをレンダリング
 	g_pDeviceContext->Draw(4, 0);
-
-
 }
 //デフォルトで入れる
 void Render2D::createRTV()
@@ -253,14 +253,16 @@ void Render2D::createRTV()
 	g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBack);
 	g_pDevice->CreateRenderTargetView(pBack, NULL, &g_pRTV);
 	pBack->Release();
-}
-
-//外部で作られたものを入れる
-void Render2D::createRTV(ID3D11Texture2D * pBack)
-{
-	g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBack);
-	g_pDevice->CreateRenderTargetView(pBack, NULL, &g_pRTV);
-	pBack->Release();
+	//サンプラーの作成
+	D3D11_SAMPLER_DESC samDesc;
+	ID3D11SamplerState* pSamplerState;
+	ZeroMemory(&samDesc, sizeof(D3D11_SAMPLER_DESC));
+	samDesc.Filter = D3D11_FILTER_MIN_LINEAR_MAG_MIP_POINT;
+	samDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	g_pDevice->CreateSamplerState(&samDesc, &pSamplerState);
+	g_pDeviceContext->PSSetSamplers(0, 1, &pSamplerState);
 }
 
 //デフォルトで入れる
@@ -284,32 +286,27 @@ void Render2D::createDSV()
 	g_pDevice->CreateDepthStencilView(g_pDS, NULL, &g_pDSV);
 	//ビューポート設定をここでする
 	g_pDeviceContext->RSSetViewports(1, &Camera::getInstance().getViewPort());
-
-}
-
-//外部で作られたものを入れる
-void Render2D::createDSV(D3D11_TEXTURE2D_DESC * pDescDepth)
-{
-	g_pDevice->CreateTexture2D(pDescDepth, NULL, &g_pDS);
-	g_pDevice->CreateDepthStencilView(g_pDS, NULL, &g_pDSV);
-	//ビューポート設定をここでする
-	g_pDeviceContext->RSSetViewports(1, &Camera::getInstance().getViewPort());
 }
 
 //デフォルトで入れる
 void Render2D::createConstantBuffer()
 {
+	AddBlob((LPSTR)"simpleShader.hlsl");
 	//バーテックスシェーダー作成
+	MakeVertex((LPSTR)"simpleShader.hlsl", ppGetBlob((LPSTR)"simpleShader.hlsl"));
 	//頂点インプットレイアウトを定義	
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = sizeof(layout) / sizeof(layout[0]);
 	//頂点インプットレイアウトを作成
-	g_pDevice->CreateInputLayout(layout, numElements, g_vs_main,sizeof(g_vs_main), &g_pVertexLayout);
+	//g_pDevice->CreateInputLayout(layout, numElements, g_vs_main,sizeof(g_vs_main), &g_pVertexLayout);
+	g_pDevice->CreateInputLayout(layout, numElements, GetBlob((LPSTR)"simpleShader.hlsl")->GetBufferPointer(), GetBlob((LPSTR)"simpleShader.hlsl")->GetBufferSize(), &g_pVertexLayout);
 	
+	MakePixel((LPSTR)"simpleShader.hlsl", ppGetBlob((LPSTR)"simpleShader.hlsl"));
+
 	//コンスタントバッファー作成               
 	D3D11_BUFFER_DESC cb;
 	cb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -339,47 +336,26 @@ void Render2D::createConstantBuffer()
 	D3D11_SUBRESOURCE_DATA InitData;
 	InitData.pSysMem = vertices;
 	g_pDevice->CreateBuffer(&bd, &InitData, &g_pVertexBuffer);
-}
 
-void Render2D::createConstantBuffer(D3D11_BUFFER_DESC *constantBuffer, D3D11_BUFFER_DESC* vertexBuffer)
-{
+	// アルファブレンド用ブレンドステート作成
+	//pngファイル内にアルファ情報がある。アルファにより透過するよう指定している
+	D3D11_BLEND_DESC bld;
+	ZeroMemory(&bld, sizeof(D3D11_BLEND_DESC));
+	bld.IndependentBlendEnable = false;
+	bld.AlphaToCoverageEnable = false;
+	bld.RenderTarget[0].BlendEnable = true;
+	bld.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	bld.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	bld.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	bld.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	bld.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	bld.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	bld.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-	//shader
-	//ID3DBlob *pCompiledShader = NULL;
-	//バーテックスシェーダー作成
-	//MakeShader("simpleShader.hlsl", "vs_5_0");
-	//頂点インプットレイアウトを定義	
-	D3D11_INPUT_ELEMENT_DESC layout[] =
-	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-	UINT numElements = sizeof(layout) / sizeof(layout[0]);
+	g_pDevice->CreateBlendState(&bld, &g_pBlendState);
 
-	//頂点インプットレイアウトを作成
-	//g_pDevice->CreateInputLayout(layout, numElements, GetCompileData("simpleShader.hlsl"), sizeof(GetCompileData("simpleShader.hlsl")), &g_pVertexLayout);
-
-	//ピクセルシェーダー作成
-	//MakeShader("simpleShader.hlsl", "ps_5_0");
-
-
-	//コンスタントバッファーの作成
-	g_pDevice->CreateBuffer(constantBuffer, NULL, &g_pConstantBuffer);
-	D3D11_SUBRESOURCE_DATA InitData;
-
-	//バーテックスバッファー作成   四角形
-	SimpleVertex vertices[] =
-	{
-		{ {-0.5,-0.5, 0},{0.0f, 1.0f}},   //頂点1 色	
-		{ {-0.5, 0.5, 0},{0.0f, 0.0f}},   //頂点2 色
-		{ {0.5,-0.5, 0 }, {1.0f, 1.0f}},   //頂点3 色
-		{ {0.5, 0.5, 0 }, {1.0f, 0.0f}}    //頂点4 色
-	};
-
-	//頂点情報の取得
-	InitData.pSysMem = vertices;
-	g_pDevice->CreateBuffer(vertexBuffer, &InitData, &g_pVertexBuffer);
-
-
+	UINT mask = 0xffffffff;
+	g_pDeviceContext->OMSetBlendState(g_pBlendState, NULL, mask);
 }
 
 #pragma region シェーダー情報を返す
@@ -395,28 +371,33 @@ ID3D11PixelShader * Render2D::GetPixelShader(std::string psName)
 	return m_PixelShaderMap.at(psName);
 }
 
-ID3D11GeometryShader * Render2D::GetGeometryShader(std::string gsName)
+ID3DBlob ** Render2D::ppGetBlob(LPSTR blobName)
 {
-	return m_GeometryShaderMap.at(gsName);
+	return &m_BlobMap.at(blobName);
 }
 
-ID3D11HullShader * Render2D::GetHullShader(std::string hsName)
+ID3DBlob * Render2D::GetBlob(LPSTR blobName)
 {
-	return m_HullShaderMap.at(hsName);
+	return m_BlobMap.at(blobName);
 }
 
-ID3D11DomainShader * Render2D::GetDomainShader(std::string dsName)
+void Render2D::AddBlob(LPSTR blobName)
 {
-	return m_DomainShaderMap.at(dsName);
+	ID3DBlob* blob;
+	m_BlobMap.emplace(blobName,blob);
 }
 
-ID3D11ComputeShader * Render2D::GetComputeShader(std::string csName)
+ID3D11VertexShader * Render2D::GetVertexShader(LPSTR name)
 {
-	return m_ComputeShaderMap.at(csName);
+	return l_VertexShaderMap.at(name);
+}
+
+ID3D11PixelShader * Render2D::GetPixelShader(LPSTR name)
+{
+	return l_PixelShaderMap.at(name);
 }
 
 #pragma endregion
-
 
 //多くのshaderに対応
 //hlslファイルを読み込みシェーダーを作成する
@@ -427,40 +408,65 @@ HRESULT Render2D::MakeShader(const std::string shaderName, const char* szProfile
 	if (strcmp(szProfile, "vs") == 0)//Vertex Shader
 	{
 		ID3D11VertexShader* pVertexShader;
-		//if (FAILED(g_pDevice->CreateVertexShader(pShaderByteCode, byteCodeLength, NULL, &pVertexShader))) return E_FAIL;
-		g_pDevice->CreateVertexShader(pShaderByteCode, byteCodeLength, NULL, &pVertexShader);
+		if (FAILED(g_pDevice->CreateVertexShader(pShaderByteCode, byteCodeLength, NULL, &pVertexShader))) return E_FAIL;
+		
 		m_VertexShaderMap.emplace(shaderName, pVertexShader);//mapに追加
 	}
 	if (strcmp(szProfile, "ps") == 0)//Pixel Shader
 	{
 		ID3D11PixelShader* pPixelShader;
-		g_pDevice->CreatePixelShader(pShaderByteCode, byteCodeLength, NULL, &pPixelShader);
+		if (FAILED(g_pDevice->CreatePixelShader(pShaderByteCode, byteCodeLength, NULL, &pPixelShader))) return E_FAIL;
+		
 		m_PixelShaderMap.emplace(shaderName, pPixelShader);//mapに追加
-	}
-	if (strcmp(szProfile, "gs") == 0)//Geometry Shader
-	{
-		ID3D11GeometryShader* pGeometryShader;
-		g_pDevice->CreateGeometryShader(pShaderByteCode, byteCodeLength, NULL, &pGeometryShader);
-		m_GeometryShaderMap.emplace(shaderName, pGeometryShader);//mapに追加
-	}
-	if (strcmp(szProfile, "hs") == 0)//Hull Shader
-	{
-		ID3D11HullShader* pHullShader;
-		g_pDevice->CreateHullShader(pShaderByteCode, byteCodeLength, NULL, &pHullShader);
-		m_HullShaderMap.emplace(shaderName, pHullShader);//mapに追加
-	}
-	if (strcmp(szProfile, "ds") == 0)//Domain Shader
-	{
-		ID3D11DomainShader* pDomainShader;
-		g_pDevice->CreateDomainShader(pShaderByteCode, byteCodeLength, NULL, &pDomainShader);
-		m_DomainShaderMap.emplace(shaderName, pDomainShader);//mapに追加
-	}
-	if (strcmp(szProfile, "cs") == 0)//Compute Shader
-	{
-		ID3D11ComputeShader* pComputeShader;
-		g_pDevice->CreateComputeShader(pShaderByteCode, byteCodeLength, NULL, &pComputeShader);
-		m_ComputeShaderMap.emplace(shaderName, pComputeShader);//mapに追加
 	}
 
 	return S_OK;
 }
+
+HRESULT Render2D::LoadVertexShader(ID3D11Device * pDevice, const std::string key, const void * pShaderByteCode, SIZE_T byteCodeLength)
+{
+	ID3D11VertexShader* pVertexShader;
+	if (FAILED(pDevice->CreateVertexShader(pShaderByteCode, byteCodeLength, NULL, &pVertexShader))) return E_FAIL;
+	m_VertexShaderMap.emplace(key, pVertexShader);
+}
+
+HRESULT Render2D::LoadPixelShader(ID3D11Device * pDevice, const std::string key, const void * pShaderByteCode, SIZE_T byteCodeLength)
+{
+	ID3D11PixelShader* pPixelShader;
+	if (FAILED(pDevice->CreatePixelShader(pShaderByteCode, byteCodeLength, NULL, &pPixelShader))) return E_FAIL;
+	m_PixelShaderMap.emplace(key, pPixelShader);
+}
+
+HRESULT Render2D::MakeVertex(LPSTR name, ID3DBlob ** ppBlob)
+{
+	ID3D11VertexShader* pVertexShader;
+	ID3DBlob *pErrors = NULL;
+	if (FAILED(D3DX11CompileFromFileA(name, NULL, NULL, "VS", "vs_5_0", D3D10_SHADER_DEBUG | D3D10_SHADER_SKIP_OPTIMIZATION, 0, NULL, ppBlob, &pErrors, NULL)))
+	{
+		char*p = (char*)pErrors->GetBufferPointer();
+		MessageBoxA(0, p, 0, MB_OK);
+		return E_FAIL;
+	}
+	g_pDevice->CreateVertexShader((*ppBlob)->GetBufferPointer(), (*ppBlob)->GetBufferSize(), NULL, &pVertexShader);
+	l_VertexShaderMap.emplace(name, pVertexShader);
+
+
+	return S_OK;
+}
+
+HRESULT Render2D::MakePixel(LPSTR name, ID3DBlob ** ppBlob)
+{
+	ID3D11PixelShader* pPixelShader;
+	ID3DBlob *pErrors = NULL;
+	if (FAILED(D3DX11CompileFromFileA(name, NULL, NULL, "PS", "ps_5_0", D3D10_SHADER_DEBUG | D3D10_SHADER_SKIP_OPTIMIZATION, 0, NULL, ppBlob, &pErrors, NULL)))
+	{
+		char*p = (char*)pErrors->GetBufferPointer();
+		MessageBoxA(0, p, 0, MB_OK);
+		return E_FAIL;
+	}
+	g_pDevice->CreatePixelShader((*ppBlob)->GetBufferPointer(), (*ppBlob)->GetBufferSize(), NULL, &pPixelShader);
+	l_PixelShaderMap.emplace(name,pPixelShader);
+	
+	return S_OK;
+}
+

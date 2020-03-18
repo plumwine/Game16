@@ -4,8 +4,8 @@
 
 //コンストラクタ・初期化並び
 Camera::Camera():
-	m_ViewEyePos(XMVectorSet(0.0,0.0,0.2,0.0)),
-	m_ViewLookAtPos(m_ViewEyePos + XMVectorSet(0.0f, 0.0f, 1.0f,0.0)),
+	m_ViewEyePos(XMVectorSet(0.0,1.0,-2,0.0)),
+	m_ViewLookAtPos(XMVectorSet(0.0f, 0.0f, 0.0f,0.0)),
 	m_ViewUpVec(XMVectorSet(0.0, 1.0, 0.0,0.0))
 {
 }

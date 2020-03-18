@@ -1,4 +1,3 @@
-
 #include "Window.h"
 #include "Camera.h"
 #include "Render2D.h"
@@ -8,7 +7,6 @@
 //関数プロトタイプ宣言
 void init();
 void app();
-
 
 // 初期化
 void init()
@@ -21,19 +19,20 @@ void init()
 	//テクスチャのシングルトン作成
 	Texture2D::createInstance();
 	Texture2D::getInstance().losdTecture((LPSTR)"Resources/Texture/sikaku_2.png", "a");
+	Texture2D::getInstance().losdTecture((LPSTR)"grid.bmp", "grid");
 
 	//レンダラーのシングルトン作成
 	Render2D::createInstance();
 	Render2D::getInstance().init();   //レンダーの初期化
 
-	
-
-
 }
 //アプリケーション
 void app()
 {
-	Render2D::getInstance().drawTexture2D("a", Vector3(0, 0, 0), Vector3(0, 0, 0), Vector3(3, 3, 1));
+	static float a;
+	if (GetKeyState('A')) { a += 0.001; }
+	Render2D::getInstance().drawTexture2D("a", Vector3(a, 0, 0), Vector3(0, 0, 0), Vector3(1,1, 1),1);
+	Render2D::getInstance().drawTexture2D("grid", Vector3(0, 0, 0), Vector3(0, 0, 0), Vector3(1, 1, 1),2);
 	Render2D::getInstance().drawManager();
 	
 }
@@ -58,7 +57,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 		if (!Window::getInstance().UpdateMessage())
 		{
-
 			app();
 			DirectX11::getInstance().GetSwapChain()->Present(0, 0);//画面更新  画面更新はここで行う
 		}
