@@ -10,6 +10,7 @@
     <ClCompile Include="Math\Vector2.cpp" />
     <ClCompile Include="Math\Vector3.cpp" />
     <ClCompile Include="Texture2D.cpp" />
+    <ClCompile Include="Input.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
@@ -25,6 +26,7 @@
     <ClInclude Include="Texture2D.h" />
     <ClInclude Include="ps_tex.h" />
     <ClInclude Include="vs_tex.h" />
+    <ClInclude Include="Input.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="simpleShader.hlsl" />
